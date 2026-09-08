@@ -4,12 +4,14 @@ import com.tyclient.module.Category;
 import com.tyclient.module.Module;
 import com.tyclient.module.ModuleManager;
 import com.tyclient.module.setting.FloatSetting;
+import com.tyclient.profile.ProfileManager;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
@@ -30,6 +32,8 @@ public class TyClientScreen extends Screen {
 	private static final int CATEGORY_BLATANT = 2;
 	private static final int CATEGORY_MOVEMENT = 3;
 	private static final int CATEGORY_RENDER = 4;
+	private static final int CATEGORY_SETTINGS = 5;
+	private static final int CATEGORY_PROFILES = 6;
 	private static final int MODULE_ROW_HEIGHT = 24;
 	private static final int MODULE_ROW_GAP = 8;
 	private static final int SETTING_ROW_HEIGHT = 30;
@@ -39,6 +43,9 @@ public class TyClientScreen extends Screen {
 	private FloatSetting draggingSetting;
 	private int categoryScroll;
 	private Module bindingModule;
+	private boolean bindingMenuKey;
+	private boolean namingProfile;
+	private StringBuilder profileName;
 
 	public TyClientScreen() {
 		super(Component.literal("TY CLIENT"));
@@ -61,7 +68,7 @@ public class TyClientScreen extends Screen {
 		graphics.fill(left, top, left + menuWidth, top + 38, PANEL_DARK);
 		graphics.fill(left, top + 37, left + menuWidth, top + 38, ORANGE);
 		graphics.text(font, Component.literal("TY CLIENT"), left + 14, top + 12, TEXT, true);
-		graphics.text(font, Component.literal("RIGHT SHIFT"), left + menuWidth - 78, top + 14, MUTED);
+		graphics.text(font, Component.literal(keyName(TyClient.getMenuKeyCode())), left + menuWidth - 98, top + 14, MUTED);
 
 		graphics.fill(left, top + 38, contentLeft, top + menuHeight, PANEL_DARK);
 		graphics.fill(contentLeft - 1, top + 38, contentLeft, top + menuHeight, BORDER);
@@ -93,6 +100,10 @@ public class TyClientScreen extends Screen {
 
 		if (isCategoryTab(selectedCategory)) {
 			renderCategoryTab(graphics, mouseX, mouseY, left, top, menuWidth, menuHeight, contentLeft, contentTop);
+		} else if (selectedCategory == CATEGORY_SETTINGS) {
+			renderSettingsTab(graphics, mouseX, mouseY, left, menuWidth, contentLeft, contentTop);
+		} else if (selectedCategory == CATEGORY_PROFILES) {
+			renderProfilesTab(graphics, mouseX, mouseY, left, menuWidth, contentLeft, contentTop);
 		} else if (selectedCategory == 0) {
 			renderOverviewTab(graphics, left, top, menuWidth, contentLeft, contentTop);
 		}
@@ -102,6 +113,91 @@ public class TyClientScreen extends Screen {
 		int row = contentTop + 36;
 		graphics.text(font, Component.literal("Modules: " + ModuleManager.getInstance().getModules().size()), contentLeft + 22, row, TEXT);
 		graphics.text(font, Component.literal("Select the Combat tab to tweak modules."), contentLeft + 22, row + 21, MUTED);
+	}
+
+	private void renderSettingsTab(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int left, int menuWidth, int contentLeft, int contentTop) {
+		int rowX = contentLeft + 22;
+		int pillX1 = left + menuWidth - 22;
+		int bindW = 110;
+		int bindX0 = pillX1 - bindW;
+		int rowTop = contentTop + 42;
+
+		graphics.text(font, Component.literal("CLIENT SETTINGS"), rowX, rowTop - 24, ORANGE, true);
+		graphics.fill(rowX, rowTop - 10, pillX1, rowTop - 9, BORDER);
+
+		graphics.text(font, Component.literal("ClickGUI Key"), rowX, rowTop + 5, MUTED);
+
+		boolean hoveringBind = bindingMenuKey || inside(mouseX, mouseY, bindX0, rowTop, bindW, MODULE_ROW_HEIGHT);
+		graphics.fill(bindX0 + 1, rowTop + 1, pillX1 - 1, rowTop + MODULE_ROW_HEIGHT - 1,
+				bindingMenuKey ? ORANGE_DARK : (hoveringBind ? HOVER : PANEL_DARK));
+		String bindText = bindingMenuKey ? "..." : keyName(TyClient.getMenuKeyCode());
+		int bindTextW = font.width(bindText);
+		graphics.text(font, Component.literal(bindText), bindX0 + (bindW - bindTextW) / 2, rowTop + 5,
+				bindingMenuKey ? TEXT : (hoveringBind ? TEXT : MUTED), true);
+
+		if (bindingMenuKey) {
+			graphics.text(font, Component.literal("Press any key to bind, ESC resets to RIGHT SHIFT."), rowX, rowTop + 40, MUTED);
+		} else {
+			graphics.text(font, Component.literal("Click the key to rebind the module menu."), rowX, rowTop + 40, MUTED);
+		}
+	}
+
+	private void renderProfilesTab(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int left, int menuWidth, int contentLeft, int contentTop) {
+		int rowX = contentLeft + 22;
+		int pillX1 = left + menuWidth - 22;
+		int addW = 70;
+		int addX0 = pillX1 - addW;
+		int headerTop = contentTop - 24;
+
+		graphics.text(font, Component.literal("PROFILES"), rowX, headerTop, ORANGE, true);
+		boolean addHovered = inside(mouseX, mouseY, addX0, headerTop - 6, addW, MODULE_ROW_HEIGHT);
+		graphics.fill(addX0 + 1, headerTop - 5, pillX1 - 1, headerTop + MODULE_ROW_HEIGHT - 1,
+				namingProfile ? ORANGE_DARK : (addHovered ? HOVER : PANEL_DARK));
+		String addText = namingProfile ? "CANCEL" : "+ NEW";
+		int addTextW = font.width(addText);
+		graphics.text(font, Component.literal(addText), addX0 + (addW - addTextW) / 2, headerTop + 1,
+				namingProfile ? TEXT : MUTED, true);
+		graphics.fill(rowX, headerTop + 30, pillX1, headerTop + 31, BORDER);
+
+		int rowTop = contentTop + 24;
+		if (namingProfile) {
+			graphics.text(font, Component.literal("Name the profile, then press ENTER to save."), rowX, rowTop + 8, MUTED);
+			String input = profileName == null ? "" : profileName.toString();
+			graphics.fill(rowX + 1, rowTop + 22, pillX1 - 1, rowTop + 48, PANEL_DARK);
+			graphics.text(font, Component.literal("> " + input + "_"), rowX + 8, rowTop + 29, TEXT);
+			return;
+		}
+
+		java.util.List<com.tyclient.profile.ProfileManager.Profile> profiles = ProfileManager.getInstance().getProfiles();
+		if (profiles.isEmpty()) {
+			graphics.text(font, Component.literal("No profiles yet. Press + NEW to save one."), rowX, rowTop + 12, MUTED);
+			return;
+		}
+
+		int loadW = 64;
+		int loadX0 = pillX1 - loadW;
+		for (com.tyclient.profile.ProfileManager.Profile profile : profiles) {
+			boolean active = profile.name.equalsIgnoreCase(ProfileManager.getInstance().getActiveName());
+			boolean hovered = inside(mouseX, mouseY, rowX, rowTop, loadX0 - rowX, MODULE_ROW_HEIGHT);
+			boolean loadHovered = inside(mouseX, mouseY, loadX0, rowTop, loadW, MODULE_ROW_HEIGHT);
+
+			if (active) {
+				graphics.fill(rowX, rowTop, rowX + 4, rowTop + MODULE_ROW_HEIGHT, ORANGE);
+			}
+			graphics.fill(rowX + 4, rowTop + 1, loadX0, rowTop + MODULE_ROW_HEIGHT - 1,
+					active ? ORANGE_DARK : (hovered ? HOVER : PANEL_DARK));
+			graphics.text(font, Component.literal(profile.name), rowX + 14, rowTop + 5,
+					active ? TEXT : (hovered ? TEXT : MUTED));
+
+			graphics.fill(loadX0 + 1, rowTop + 1, pillX1 - 1, rowTop + MODULE_ROW_HEIGHT - 1,
+					loadHovered ? HOVER : PANEL_DARK);
+			String loadText = active ? "ACTIVE" : "LOAD";
+			int loadTextW = font.width(loadText);
+			graphics.text(font, Component.literal(loadText), loadX0 + (loadW - loadTextW) / 2, rowTop + 5,
+					active ? GREEN : MUTED, true);
+
+			rowTop += MODULE_ROW_HEIGHT + MODULE_ROW_GAP;
+		}
 	}
 
 	private void renderCategoryTab(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int left, int top, int menuWidth, int menuHeight, int contentLeft, int contentTop) {
@@ -288,7 +384,56 @@ Category cat = categoryForIndex(index);
 				categoryScroll = 0;
 				draggingSetting = null;
 				bindingModule = null;
+				bindingMenuKey = false;
+				namingProfile = false;
+				profileName = null;
 				return true;
+			}
+		}
+
+		if (selectedCategory == CATEGORY_SETTINGS) {
+			int contentTop = top + 66;
+			int rowX = contentLeft + 22;
+			int pillX1 = left + menuWidth - 22;
+			int bindW = 110;
+			int bindX0 = pillX1 - bindW;
+			int rowTop = contentTop + 42;
+			if (inside(event.x(), event.y(), bindX0, rowTop, bindW, MODULE_ROW_HEIGHT)) {
+				bindingMenuKey = true;
+				return true;
+			}
+		}
+
+		if (selectedCategory == CATEGORY_PROFILES) {
+			int contentTop = top + 66;
+			int rowX = contentLeft + 22;
+			int pillX1 = left + menuWidth - 22;
+			int addW = 70;
+			int addX0 = pillX1 - addW;
+			int addTop = contentTop - 24 - 6;
+			if (inside(event.x(), event.y(), addX0, addTop, addW, MODULE_ROW_HEIGHT)) {
+				namingProfile = !namingProfile;
+				profileName = new StringBuilder();
+				return true;
+			}
+
+			int rowTop = contentTop + 24;
+			int loadW = 64;
+			int loadX0 = pillX1 - loadW;
+			for (com.tyclient.profile.ProfileManager.Profile profile : ProfileManager.getInstance().getProfiles()) {
+				if (profile.name.equalsIgnoreCase(ProfileManager.getInstance().getActiveName())) {
+					rowTop += MODULE_ROW_HEIGHT + MODULE_ROW_GAP;
+					continue;
+				}
+				if (inside(event.x(), event.y(), rowX, rowTop, loadX0 - rowX, MODULE_ROW_HEIGHT)) {
+					ProfileManager.getInstance().loadProfile(profile.name);
+					return true;
+				}
+				if (inside(event.x(), event.y(), loadX0, rowTop, loadW, MODULE_ROW_HEIGHT)) {
+					ProfileManager.getInstance().loadProfile(profile.name);
+					return true;
+				}
+				rowTop += MODULE_ROW_HEIGHT + MODULE_ROW_GAP;
 			}
 		}
 
@@ -376,6 +521,20 @@ Category cat = categoryForIndex(index);
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
+		if (namingProfile) {
+			handleProfileNaming(event);
+			return true;
+		}
+		if (bindingMenuKey) {
+			int code = event.key();
+			if (code == 256) {
+				TyClient.setMenuKeyCode(GLFW.GLFW_KEY_RIGHT_SHIFT);
+			} else {
+				TyClient.setMenuKeyCode(code);
+			}
+			bindingMenuKey = false;
+			return true;
+		}
 		if (bindingModule != null) {
 			int code = event.key();
 			if (code == 256) {
@@ -387,6 +546,50 @@ Category cat = categoryForIndex(index);
 			return true;
 		}
 		return super.keyPressed(event);
+	}
+
+	private void handleProfileNaming(KeyEvent event) {
+		int code = event.key();
+		if (code == 256) {
+			namingProfile = false;
+			profileName = null;
+			return;
+		}
+		if (code == 257) {
+			String name = profileName == null ? "" : profileName.toString().trim();
+			if (!name.isEmpty() && name.length() <= 24) {
+				ProfileManager.getInstance().createProfile(name);
+			}
+			namingProfile = false;
+			profileName = null;
+			return;
+		}
+		if (profileName == null) {
+			profileName = new StringBuilder();
+		}
+		if (code == 259) {
+			if (profileName.length() > 0) {
+				profileName.deleteCharAt(profileName.length() - 1);
+			}
+			return;
+		}
+		if (profileName.length() >= 24) {
+			return;
+		}
+		if (code == 32) {
+			if (profileName.length() > 0) {
+				profileName.append(' ');
+			}
+			return;
+		}
+		if (code >= 65 && code <= 90) {
+			boolean shift = (event.modifiers() & 0x1) != 0;
+			profileName.append(shift ? (char) code : (char) (code + 32));
+			return;
+		}
+		if (code >= 48 && code <= 57) {
+			profileName.append((char) code);
+		}
 	}
 
 	private String keyName(int code) {

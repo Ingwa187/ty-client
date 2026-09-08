@@ -2,9 +2,11 @@ package com.tyclient.mixin;
 
 import com.tyclient.module.Module;
 import com.tyclient.module.ModuleManager;
+import com.tyclient.module.combat.AutoClicker;
 import com.tyclient.module.combat.RightClicker;
 import com.tyclient.module.combat.TriggerBot;
 import com.tyclient.module.movement.LegitScaffold;
+import com.tyclient.module.blatant.Speed;
 import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -24,14 +26,15 @@ public class MinecraftMixin {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) return;
 
+        long tick = mc.level.getGameTime();
+        boolean newTick = tick != lastKeybindTick;
+        if (newTick) {
+            lastKeybindTick = tick;
+        }
+
         TriggerBot triggerBot = ModuleManager.getInstance().getTriggerBot();
         if (triggerBot != null && triggerBot.isEnabled()) {
             triggerBot.onFrame(mc);
-        }
-
-        LegitScaffold scaffold = ModuleManager.getInstance().getLegitScaffold();
-        if (scaffold != null && scaffold.isEnabled()) {
-            scaffold.onFrame(mc);
         }
 
         RightClicker rightClicker = ModuleManager.getInstance().getRightClicker();
@@ -39,9 +42,22 @@ public class MinecraftMixin {
             rightClicker.onFrame(mc);
         }
 
-        long tick = mc.level.getGameTime();
-        if (tick == lastKeybindTick) return;
-        lastKeybindTick = tick;
+        AutoClicker autoClicker = ModuleManager.getInstance().getAutoClicker();
+        if (autoClicker != null && autoClicker.isEnabled()) {
+            autoClicker.onFrame(mc);
+        }
+
+        LegitScaffold scaffold = ModuleManager.getInstance().getLegitScaffold();
+        if (scaffold != null && scaffold.isEnabled()) {
+            scaffold.onFrame(mc);
+        }
+
+        Speed speed = ModuleManager.getInstance().getSpeed();
+        if (speed != null && speed.isEnabled()) {
+            speed.onFrame(mc);
+        }
+
+        if (!newTick) return;
 
         com.mojang.blaze3d.platform.Window window = mc.getWindow();
         for (Module module : ModuleManager.getInstance().getModules()) {

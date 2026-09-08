@@ -1,6 +1,9 @@
 package com.tyclient.module;
 
+import com.tyclient.module.blatant.Scaffold;
+import com.tyclient.module.blatant.Speed;
 import com.tyclient.module.combat.AimAssist;
+import com.tyclient.module.combat.AutoClicker;
 import com.tyclient.module.combat.RightClicker;
 import com.tyclient.module.combat.TriggerBot;
 import com.tyclient.module.movement.LegitScaffold;
@@ -17,11 +20,24 @@ public class ModuleManager {
 
     private ModuleManager() {
         register(new AimAssist());
+        register(new AutoClicker());
         register(new TriggerBot());
         register(new RightClicker());
+        register(new Speed());
         register(new LegitScaffold());
         register(new ArrayListModule());
         register(new EspModule());
+    }
+
+    public Scaffold getScaffold() {
+        return null;
+    }
+
+    public AutoClicker getAutoClicker() {
+        return (AutoClicker) modules.stream()
+                .filter(m -> m instanceof AutoClicker)
+                .findFirst()
+                .orElse(null);
     }
 
     public static ModuleManager getInstance() {
@@ -69,6 +85,13 @@ public class ModuleManager {
     public LegitScaffold getLegitScaffold() {
         return (LegitScaffold) modules.stream()
                 .filter(m -> m instanceof LegitScaffold)
+                .findFirst()
+                .orElse(null);
+    }
+
+    public Speed getSpeed() {
+        return (Speed) modules.stream()
+                .filter(m -> m instanceof Speed)
                 .findFirst()
                 .orElse(null);
     }

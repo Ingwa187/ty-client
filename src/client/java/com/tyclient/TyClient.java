@@ -1,6 +1,7 @@
 package com.tyclient;
 
 import com.tyclient.module.ModuleManager;
+import com.tyclient.profile.ProfileManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
@@ -15,16 +16,27 @@ import org.lwjgl.glfw.GLFW;
 public class TyClient implements ClientModInitializer {
 	public static final String MOD_ID = "tyclient";
 	private static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+	private static int menuKeyCode = GLFW.GLFW_KEY_RIGHT_SHIFT;
 	private static final KeyMapping MENU_KEY = KeyMappingHelper.registerKeyMapping(new KeyMapping(
 			"key.tyclient.menu",
 			InputConstants.Type.KEYSYM,
-			GLFW.GLFW_KEY_RIGHT_SHIFT,
+			menuKeyCode,
 			Category.MISC
 	));
+
+	public static int getMenuKeyCode() {
+		return menuKeyCode;
+	}
+
+	public static void setMenuKeyCode(int code) {
+		menuKeyCode = code;
+		MENU_KEY.setKey(InputConstants.Type.KEYSYM.getOrCreate(code));
+	}
 
 	@Override
 	public void onInitializeClient() {
 		ModuleManager.getInstance();
+		ProfileManager.getInstance();
 		ClientTickEvents.END_CLIENT_TICK.register(TyClient::handleClientTick);
 		LOGGER.info("TY CLIENT loaded.");
 	}

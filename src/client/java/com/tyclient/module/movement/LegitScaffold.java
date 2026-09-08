@@ -52,7 +52,7 @@ public class LegitScaffold extends Module {
             if (now >= sneakingUntil) {
                 sneaking = false;
                 mc.options.keyShift.setDown(false);
-                cooldownUntil = now + 40L;
+                cooldownUntil = now + 150L;
             }
             return;
         }

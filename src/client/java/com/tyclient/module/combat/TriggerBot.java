@@ -80,8 +80,16 @@ public class TriggerBot extends Module {
             nextClickTime = now + interval;
         } else {
             if (now < nextTimedClickTime) return;
-            if (mc.player.getAttackStrengthScale(0f) < 1.0f) return;
-            interval = timedCooldownMs(mc);
+
+            float delayTicks = mc.player.getCurrentItemAttackStrengthDelay();
+            if (Float.isFinite(delayTicks) && delayTicks > 0f) {
+                if (mc.player.getAttackStrengthScale(0.5f) < 1.0f) {
+                    return;
+                }
+                interval = Math.max(200L, Math.round(delayTicks * 50.0));
+            } else {
+                interval = Math.max(200L, clickIntervalMs());
+            }
             nextTimedClickTime = now + interval;
         }
 
@@ -115,13 +123,5 @@ public class TriggerBot extends Module {
         float max = Math.max(minCps.getValue(), maxCps.getValue());
         float cps = min + (float) Math.random() * (max - min);
         return Math.max(MIN_INTERVAL_MS, Math.round(1000.0 / cps));
-    }
-
-    private long timedCooldownMs(Minecraft mc) {
-        float delayTicks = mc.player.getCurrentItemAttackStrengthDelay();
-        if (!Float.isFinite(delayTicks) || delayTicks <= 0f) {
-            return 500L;
-        }
-        return Math.round(delayTicks * 50.0);
     }
 }
